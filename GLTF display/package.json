@@ -1,0 +1,19 @@
+{
+  "name": "projektna-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "njsServer.js",
+  "dependencies": {
+    "connect": "^3.7.0",
+    "gl-matrix": "^3.1.0",
+    "require": "^2.4.20",
+    "serve-static": "^1.14.1",
+    "static-server": "^2.2.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "test"
+  },
+  "author": "Peter Žnidar",
+  "license": "ISC"
+}
