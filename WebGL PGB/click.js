@@ -18,10 +18,12 @@ var FSHADER_SOURCE =
   'void main() {\n' +
   '  gl_FragColor = v_Color;\n' +
   '}\n';
-
-function main() {
-  // Retrieve <canvas> element
+ var i = 0;
+ window.loop = function (){
+  window.requestAnimationFrame( main );
+  
   var canvas = document.getElementById('webgl');
+  i+=0.05;
 
   // Get the rendering context for WebGL
   var gl = getWebGLContext(canvas);
@@ -53,11 +55,13 @@ function main() {
     console.log('Failed to get the storage location of u_MvpMatrix');
     return;
   }
-
+	
   // Set the eye point and the viewing volume
   var mvpMatrix = new Matrix4();
-  mvpMatrix.setPerspective(30, 1, 1, 100);
-  mvpMatrix.lookAt(3, 3, 7, 0, 0, 0, 0, 1, 0);
+  
+  mvpMatrix.setPerspective(10, 1, 1, 100);
+  
+  mvpMatrix.lookAt(3, i, 7, 0, 0, 0, 0, 1, 0);
 
   // Pass the model view projection matrix to u_MvpMatrix
   gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
@@ -67,7 +71,19 @@ function main() {
 
   // Draw the cube
   gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+};
+ node.addEventListener('keydown', function(event) {
+    const key = event.key; // "a", "1", "Shift", etc.
+	console.log(key)
+});
+function main() {
+  loop();
+  
 }
+  
+  
+
+
 
 function initVertexBuffers(gl) {
   // Create a cube
