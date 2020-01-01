@@ -1,3 +1,18 @@
+const currentKeysPressed = {};
+
+function onKeypress(event) {
+
+
+  currentKeysPressed[event.key] = true;
+
+}
+function onKeyUp(event) {
+
+  currentKeysPressed[event.key] = false;
+}
+
+window.addEventListener('keydown', onKeypress);
+window.addEventListener('keyup', onKeyUp);
 
 var VSHADER_SOURCE =
   'attribute vec4 a_Position;\n' +
@@ -18,12 +33,12 @@ var FSHADER_SOURCE =
   'void main() {\n' +
   '  gl_FragColor = v_Color;\n' +
   '}\n';
- var i = 0;
+ var i = 1;
  window.loop = function (){
   window.requestAnimationFrame( main );
   
   var canvas = document.getElementById('webgl');
-  i+=0.05;
+  
 
   // Get the rendering context for WebGL
   var gl = getWebGLContext(canvas);
@@ -60,6 +75,12 @@ var FSHADER_SOURCE =
   var mvpMatrix = new Matrix4();
   
   mvpMatrix.setPerspective(10, 1, 1, 100);
+   if(currentKeysPressed['ArrowUp']) {
+		i+=0.05;
+  }
+  if(currentKeysPressed['ArrowDown']) {
+		i-=0.05;
+  }
   
   mvpMatrix.lookAt(3, i, 7, 0, 0, 0, 0, 1, 0);
 
@@ -71,11 +92,8 @@ var FSHADER_SOURCE =
 
   // Draw the cube
   gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_BYTE, 0);
+  console.log(currentKeysPressed);
 };
- node.addEventListener('keydown', function(event) {
-    const key = event.key; // "a", "1", "Shift", etc.
-	console.log(key)
-});
 function main() {
   loop();
   
