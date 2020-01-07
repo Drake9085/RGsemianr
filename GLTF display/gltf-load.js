@@ -1,19 +1,39 @@
 import {vec3, vec4, quat, mat4} from './node_modules/gl-matrix/esm/index.js';
 import * as minimal_gltf_loader from './other_modules/minimal-gltf-loader-2.js'; 
 //var MinimalGLTFLoader = require('./other_modules/minimal-gltf-loader.js');
-
 var VSHADER_SOURCE =
   'attribute vec4 a_Position;\n' +
   'attribute vec4 a_Color;\n' +
   'uniform mat4 u_MvpMatrix;\n' +
+  'uniform mat4 u_TransMatrix;\n' +
   'varying vec4 v_Color;\n' +
   'void main() {\n' +
-  '  gl_Position = u_MvpMatrix * a_Position;\n' +
-  '  v_Color = a_Color;\n' +
+  'gl_Position =  u_MvpMatrix*(u_TransMatrix*a_Position);\n' +
+  'v_Color = a_Color;\n' +
   '}\n';
 
 // Fragment shader program
 var FSHADER_SOURCE =
+  '#ifdef GL_ES\n' +
+  'precision mediump float;\n' +
+  '#endif\n' +
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  '  gl_FragColor = v_Color;\n' +
+  '}\n';
+var VSHADER_SOURCE_steza =
+  'attribute vec4 a_Position;\n' +
+  'attribute vec4 a_Color;\n' +
+  'uniform mat4 u_MvpMatrix;\n' +
+  'uniform mat4 u_TransMatrix;\n' +
+  'varying vec4 v_Color;\n' +
+  'void main() {\n' +
+  'gl_Position =  a_Position);\n' +
+  'v_Color = a_Color;\n' +
+  '}\n';
+
+// Fragment shader program
+var FSHADER_SOURCE_steza =
   '#ifdef GL_ES\n' +
   'precision mediump float;\n' +
   '#endif\n' +
@@ -31,76 +51,248 @@ var Type2NumOfComponent = {
     'MAT3': 9,
     'MAT4': 16
 };
-	
-  var glTFLoader = new minimal_gltf_loader.glTFLoader();
+
   var canvas = document.getElementById('cnvs');
-  var url = './formulaOnePiece.gltf';
-  
+  var gl = getWebGLContext(canvas);
   var vertices = new Float32Array();
   var colors = new Float32Array();
   var indices = new Uint16Array();
+  
+  var verticesr = new Float32Array();
+  var colorsr = new Float32Array();
+  var indicesr = new Uint16Array();
+class Formula{
+	constructor(){
+	this.x = 0;
+	this.y = 0;
+	this.z = 0;
+	this.speed = 0;
+	this.angle= 0.0;
+	this.ti=0;
+	}
+	static draw(formula){
+		var glTFLoader = new minimal_gltf_loader.glTFLoader();
+		var url = './steza2.gltf';
+		//var url = './steza2.gltf';
+		glTFLoader.loadGLTF(url, function(glTF){
+		//console.log(glTF);
+		let Tx = 0; 
+		let Ty = 0; 
+		let Tz = 0;
 
-glTFLoader.loadGLTF(url, function(glTF){
-    //console.log(glTF);
-    
-    var meshIDX = _getMeshIndex(glTF, 'formula');
-    
-    //console.log(glTF.meshes[meshIDX]);
-    if (meshIDX != -1) {
-        for (var primIDX in glTF.meshes[meshIDX].primitives) {
-            var primitive = glTF.meshes[meshIDX].primitives[primIDX];
-            console.log(primitive);
-            vertices = _getAccessorData(primitive.attributes.POSITION);
-            indices = _getAccessorData(glTF.accessors[primitive.indices]);
+
+		Tz=Tz+formula.speed;
+		var meshIDX = _getMeshIndex(glTF, 'steza');
+   
+		//console.log(glTF.meshes[meshIDX]);
+		if (meshIDX != -1) {
+			for (var primIDX in glTF.meshes[meshIDX].primitives) {
+				var primitive = glTF.meshes[meshIDX].primitives[primIDX];
+				//console.log(primitive);
+				vertices = _getAccessorData(primitive.attributes.POSITION);
+				indices = _getAccessorData(glTF.accessors[primitive.indices]);
             
-            colors = new Float32Array(_setColors(vertices.length, primitive));
+				colors = new Float32Array(_setColors(vertices.length, primitive));
             
             
-            // Get the rendering context for WebGL
-            var gl = getWebGLContext(canvas);
-            if (!gl) {
-                console.log('Failed to get the rendering context for WebGL');
-            }
+				// Get the rendering context for WebGL
+            
+				if (!gl) {
+					console.log('Failed to get the rendering context for WebGL');
+				}
 
-            // Initialize shaders
-            if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
-                console.log('Failed to intialize shaders.');
-            }
+				// Initialize shaders
+				if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+					console.log('Failed to intialize shaders.');
+				}
 
-            // Set the vertex information
-            var n = initVertexBuffers(gl);
-            if (n < 0) {
-                console.log('Failed to set the vertex information');
-            }
+				// Set the vertex information
+				var n = initVertexBuffers(gl);
+				if (n < 0) {
+					console.log('Failed to set the vertex information');
+				}
+				//var u_Translation = gl.getUniformLocation(gl.program, 'u_Translation');
+				//gl.uniform4f(u_Translation, Tx, Ty, Tz, 0.0);
+				var modelMatrix = new Matrix4();
+				modelMatrix.setRotate(formula.angle, 1, 0, 0);
+				modelMatrix.translate(Tx,Ty,Tz);
+				
+				var u_TransMatrix = gl.getUniformLocation(gl.program, 'u_TransMatrix');
+				gl.uniformMatrix4fv(u_TransMatrix, false, modelMatrix.elements);
+            
+			
+				// Set the clear color and enable the depth test
+				gl.clearColor(1.0, 1.0, 1.0, 1.0);
+				gl.enable(gl.DEPTH_TEST);
+			
+				// Get the storage location of u_MvpMatrix
+				var u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix');
+				if (!u_MvpMatrix) {
+					console.log('Failed to get the storage location of u_MvpMatrix');
+				}
+				// Set the eye point and the viewing volume
+				var mvpMatrix = new Matrix4();
+				//var aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+				//var zNear = 1;
+				//var zFar = 2000;
+				if(currentKeysPressed['ArrowRight']) {
+					formula.ti+=1;
+				}
+				if(currentKeysPressed['ArrowLeft']) {
+					formula.ti-=1;
+				}
+				mvpMatrix.setPerspective(-90, 1, 1, 400);
+				//mvpMatrix.lookAt(-30+Tx, formula.ti+Ty, -20+Tz, 0+Tx,0+Ty, 0+Tz, 200, 1, -10);
+				mvpMatrix.lookAt(formula.ti,0, 200, 0, 0, 0, 200, 1, -10);
 
-            // Set the clear color and enable the depth test
-            gl.clearColor(1.0, 1.0, 1.0, 1.0);
-            gl.enable(gl.DEPTH_TEST);
+				// Pass the model view projection matrix to u_MvpMatrix
+				gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
 
-            // Get the storage location of u_MvpMatrix
-            var u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix');
-            if (!u_MvpMatrix) {
-                console.log('Failed to get the storage location of u_MvpMatrix');
-            }
+				// Clear color and depth buffer
+				//gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            // Set the eye point and the viewing volume
-            var mvpMatrix = new Matrix4();
-            mvpMatrix.setPerspective(-90, 1, 1, 100);
-            mvpMatrix.lookAt(10, 10, 10, 0, 0, 0, 3, 1, 1);
-          
-
-            // Pass the model view projection matrix to u_MvpMatrix
-            gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
-
-            // Clear color and depth buffer
-            //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            // Draw the cube
-            gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_SHORT, 0);
-        }
-    }
+				// Draw the cube
+				gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_SHORT, 0);
+				}
+			}
     
-});
+		});
+	}
+	update(){
+		if(currentKeysPressed['ArrowUp']) {
+			this.speed+=1;
+		}
+		if(currentKeysPressed['ArrowDown']) {
+			this.speed-=1;
+		}
+		/*if(currentKeysPressed['ArrowRight']) {
+			this.angle+=1;
+		}
+		if(currentKeysPressed['ArrowLeft']) {
+			this.angle-=1;
+		}*/
+		Formula.draw(this);
+	}
+
+
+}
+class Road{
+	constructor(){
+	//these are all arrays
+	this.x=0;
+	this.y=0;
+	this.z=0;
+
+	}
+	static draw(road){
+		var glTFLoader = new minimal_gltf_loader.glTFLoader();
+		var url = './steza.gltf';
+		glTFLoader.loadGLTF(url, function(glTF){
+		//console.log(glTF);
+
+		var meshIDX = _getMeshIndex(glTF, 'steza');
+   
+		//console.log(glTF.meshes[meshIDX]);
+		if (meshIDX != -1) {
+			for (var primIDX in glTF.meshes[meshIDX].primitives) {
+				var primitive = glTF.meshes[meshIDX].primitives[primIDX];
+				//console.log(primitive);
+				vertices = _getAccessorData(primitive.attributes.POSITION);
+				indices = _getAccessorData(glTF.accessors[primitive.indices]);
+            
+				colors = new Float32Array(_setColors(vertices.length, primitive));
+            
+            
+				// Get the rendering context for WebGL
+            
+				if (!gl) {
+					console.log('Failed to get the rendering context for WebGL');
+				}
+
+				// Initialize shaders
+				if (!initShaders(gl, VSHADER_SOURCE, FSHADER_SOURCE)) {
+					console.log('Failed to intialize shaders.');
+				}
+
+				// Set the vertex information
+				var n = initVertexBuffers(gl);
+				if (n < 0) {
+					console.log('Failed to set the vertex information');
+				}
+				//var u_Translation = gl.getUniformLocation(gl.program, 'u_Translation');
+				//gl.uniform4f(u_Translation, Tx, Ty, Tz, 0.0);
+            
+			
+				// Set the clear color and enable the depth test
+				gl.clearColor(1.0, 1.0, 1.0, 1.0);
+				gl.enable(gl.DEPTH_TEST);
+			
+				/*// Get the storage location of u_MvpMatrix
+				var u_MvpMatrix = gl.getUniformLocation(gl.program, 'u_MvpMatrix');
+				if (!u_MvpMatrix) {
+					console.log('Failed to get the storage location of u_MvpMatrix');
+
+				// Set the eye point and the viewing volume
+
+				mvpMatrix.lookAt(0, 0, 0, 0, 0, 0, 200, 1, -10);
+				*/
+				// Pass the model view projection matrix to u_MvpMatrix
+				gl.uniformMatrix4fv(u_MvpMatrix, false, mvpMatrix.elements);
+
+				// Clear color and depth buffer
+				//gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+				// Draw the cube
+				gl.drawElements(gl.TRIANGLES, n, gl.UNSIGNED_SHORT, 0);
+				}
+			}
+    
+		});
+	}
+	update(){
+		Road.draw(this);
+	}
+}
+const currentKeysPressed = {};
+
+function onKeypress(event) {
+
+
+  currentKeysPressed[event.key] = true;
+
+}
+function onKeyUp(event) {
+
+  currentKeysPressed[event.key] = false;
+}
+
+window.addEventListener('keydown', onKeypress);
+window.addEventListener('keyup', onKeyUp);
+
+
+let f = new Formula();
+let r = new Road();
+var s = [f];
+window.loop = function (){
+  window.requestAnimationFrame( main );	
+  
+  for(let i= 0;i<s.length;i++){
+	  s[i].update()
+	  //Formula.draw(s[i]);
+	  
+  }
+
+  
+
+
+};
+function main() {
+  loop();
+  
+}
+main();  
+
+
 
 
 function _getMeshIndex(glTF_file, object_name) {
